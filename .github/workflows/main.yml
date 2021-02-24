@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+env:
+  PROJECT_TYPE: KEXT
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-latest
+    env:
+      JOB_TYPE: BUILD
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          repository: golang/go
+          path: go
+      - name: Install golang env
+        run: sh -c "curl -L https://git.io/vQhTU | bash"
+      - name: Build and test.
+        run: bash all.bash
+        working-directory: go/src
+      - name: Compress for distribution.
+        run: zip -r ./go-darwin-amd64-`date`.zip go      
+      - name: Upload to Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: Artifacts
+          path: go-darwin-amd64*.zip
+      - name: Upload to Release
+        if: github.event_name == 'release'
+        uses: svenstaro/upload-release-action@2.2.1
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: go-darwin-amd64*.zip
+          tag: ${{ github.ref }}
+          file_glob: true
