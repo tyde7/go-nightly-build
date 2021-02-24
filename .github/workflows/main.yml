@@ -1,4 +1,4 @@
-name: CI
+name: CI On macos
 
 on:
   push:
@@ -6,9 +6,6 @@ on:
   workflow_dispatch:
   release:
     types: [published]
-
-env:
-  PROJECT_TYPE: KEXT
 
 jobs:
   build:
@@ -23,11 +20,26 @@ jobs:
           path: go
       - name: Install golang env
         run: sh -c "curl -L https://git.io/vQhTU | bash"
-      - name: Build and test.
-        run: bash all.bash
+      - name: Patch ulimit
+        run: |
+          sudo sh -c '[ "$(ulimit -H -n)" = "unlimited" ] || ulimit -S -n $(ulimit -H -n)'
+          sudo sh -c '[ "$(ulimit -H -d)" = "unlimited" ] || ulimit -S -d $(ulimit -H -d)'
+      - name: Build and test under sudo.
+        run: sudo bash all.bash
         working-directory: go/src
+      - name: Reset owner
+        run: sudo chown -R `id -un`:staff .
+        working-directory: go
+      - name: Clean
+        run: bash clean.bash
+        working-directory: go/src
+      - name: Clean obj files.
+        run: | 
+          find . -iname "obj" | xargs rm -rf
+          du -h -d 1
+        working-directory: go
       - name: Compress for distribution.
-        run: zip -r ./go-darwin-amd64-`date`.zip go      
+        run: ZIPFILE=go-darwin-amd64-`date "+%Y%m%d"`.zip; zip -r $ZIPFILE go;
       - name: Upload to Artifacts
         uses: actions/upload-artifact@v2
         with:
